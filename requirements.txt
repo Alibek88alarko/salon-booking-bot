@@ -1,0 +1,6 @@
+aiogram>=3.13,<4
+APScheduler>=3.10,<4
+anthropic>=0.40
+python-dotenv>=1.0
+tzdata>=2024.1      # часовые пояса на Windows
+pytest>=8          # только для tests/

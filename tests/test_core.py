@@ -1,6 +1,7 @@
 """Проверки того, что смотрит ревьюер. Запуск: pytest -q"""
 from __future__ import annotations
 
+import sqlite3
 import threading
 from datetime import date, datetime, timedelta
 
@@ -34,6 +35,25 @@ def test_unique_index_exists(db_path):
         "SELECT sql FROM sqlite_master WHERE name='ux_master_slot'"
     ).fetchone()[0]
     assert "UNIQUE" in sql and "master_id, starts_at" in sql and "status = 'active'" in sql
+
+
+def test_unique_index_read_back_and_enforced_by_sqlite(db_path):
+    """Индекс читается обратно из самой базы, и дубль не проходит даже прямым SQL в обход Database.book()."""
+    conn = sqlite3.connect(db_path)  # голое соединение, без кода приложения
+    idx = {row[1]: row for row in conn.execute("PRAGMA index_list('appointments')")}
+    _seq, _name, unique, _origin, partial = idx["ux_master_slot"]
+    assert unique == 1 and partial == 1
+    assert [r[2] for r in conn.execute("PRAGMA index_info('ux_master_slot')")] == ["master_id", "starts_at"]
+
+    insert = (
+        "INSERT INTO appointments(master_id, client_name, starts_at, ends_at, status, created_at) "
+        "VALUES (1, 'Тест', '2026-09-08 12:00', '2026-09-08 13:00', ?, '2026-09-07 09:00')"
+    )
+    conn.execute(insert, ("active",))
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(insert, ("active",))      # второй активный на тот же слот: отказывает сама SQLite
+    conn.execute(insert, ("cancelled",))       # отменённая запись слот не занимает
+    conn.close()
 
 
 def test_race_two_clients_same_slot(db_path):

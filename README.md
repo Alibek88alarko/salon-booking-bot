@@ -18,15 +18,16 @@ Output on the last run (Linux, Python 3.11, no API key, no network):
 
 ```
 ............                                                             [100%]
-12 passed in 4.57s
+13 passed in 4.55s
 ```
 
-What the 12 tests actually check, so the number means something:
+What the 13 tests actually check, so the number means something:
 
 | Test | What is measured |
 |---|---|
 | `test_race_two_clients_same_slot` | Two threads with separate SQLite connections book the same master and time at the same moment (a `threading.Barrier` releases both together). Exactly one row is written, the other thread gets `SlotTaken`. Count of active appointments after the race: 1. |
 | `test_unique_index_exists` | A partial unique index `ux_master_slot` on `(master_id, starts_at) WHERE status = 'active'` exists, so double booking is refused by the database even if application code is bypassed. |
+| `test_unique_index_read_back_and_enforced_by_sqlite` | Reads the index back from SQLite itself (`PRAGMA index_list` / `index_info`): unique, partial, columns `(master_id, starts_at)`. Then, on a bare `sqlite3` connection with no application code, inserts an active booking and tries the same slot again with plain SQL: SQLite raises `IntegrityError`. A cancelled row for the same slot is accepted. |
 | `test_overlap_rejected_but_adjacent_ok` | A 60-minute booking overlapping an existing one is rejected; a booking that starts exactly when the previous ends is accepted. |
 | `test_cancelled_slot_is_free_again` | After cancellation the same slot can be booked again (the partial index ignores cancelled rows). |
 | `test_reminder_persisted_and_due` | The reminder is stored in the database, becomes due at the right minute, survives a "restart" (a fresh connection sees it), and is not returned twice once marked sent. |

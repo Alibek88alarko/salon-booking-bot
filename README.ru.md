@@ -44,6 +44,7 @@ cp .env.example .env
 | Проверка | Где |
 |---|---|
 | Слот защищён транзакцией и уникальным индексом | `salon_bot/db.py`: индекс `ux_master_slot` (частичный, по активным записям), `Database.book()` — `BEGIN IMMEDIATE` + проверка пересечений + INSERT; `IntegrityError` → `SlotTaken`. Тест гонки: `tests/test_core.py::test_race_two_clients_same_slot` |
+| Индекс держит сама SQLite, даже в обход кода бота | `tests/test_core.py::test_unique_index_read_back_and_enforced_by_sqlite`: читает индекс из базы (`PRAGMA index_list` / `index_info`: уникальный, частичный, колонки `master_id, starts_at`); на голом соединении `sqlite3` второй активный INSERT на тот же слот даёт `IntegrityError`, отменённая запись слот не занимает |
 | Модель отвечает только по прайсу | `salon_bot/llm.py`: системный промпт получает только прайс; ответ JSON `{answer, handoff}`; любое сомнение, ошибка, таймаут, пустой ответ → `handoff=True` |
 | Телефон не попадает в промпт | `llm.py` не получает ничего, кроме текста сообщения; `scrub()` маскирует номер, если клиент написал его сам. Тест: `test_scrub_hides_phone_before_llm` |
 | Первое сообщение: «я ИИ» + позвать человека | `salon_bot/handlers/start.py`: `WELCOME`, кнопка «Позвать администратора» в главном меню |
